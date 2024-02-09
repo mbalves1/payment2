@@ -1,14 +1,18 @@
-version: '3'
+version: '3.5'
 
 services:
   app:
     build: .
-    command: npm run start:dev
+    command: npm run start
     container_name: payment2-app
     ports:
       - "3001:3000"
     volumes:
       - .:/usr/app
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgresql://postgres:admin@db:5432/payment2
   
   db:
     image: postgres:latest
