@@ -1,6 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
-import { UpdateTransactionDto } from './dto/update-transaction.dto';
+// import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { TransactionEntity } from './entities/transaction.entity';
 import { PrismaService } from 'src/prisma/prisma.service';
 
@@ -9,24 +13,43 @@ export class TransactionsService {
   constructor(private prisma: PrismaService) {}
 
   async create(
+    userId: string,
     createTransactionDto: CreateTransactionDto,
   ): Promise<TransactionEntity> {
-    return this.prisma.transaction.create({ data: createTransactionDto });
-  }
+    const user = await this.prisma.user.findUnique({
+      where: { id: +userId },
+      include: {
+        transaction: true,
+      },
+    });
 
-  findAll() {
-    return `This action returns all transactions`;
-  }
+    if (!user) {
+      throw new NotFoundException('O usuário não foi encontrado');
+    }
 
-  findOne(id: number) {
-    return `This action returns a #${id} transaction`;
-  }
+    const userBalance = user.saldo;
 
-  update(id: number, updateTransactionDto: UpdateTransactionDto) {
-    return `This action updates a #${id} transaction`;
-  }
+    const userBalanceAfterTransaction =
+      userBalance - createTransactionDto.valor;
 
-  remove(id: number) {
-    return `This action removes a #${id} transaction`;
+    if (userBalanceAfterTransaction < user.limite) {
+      throw new UnauthorizedException(
+        'Saldo insuficiente para realizar a transação',
+      );
+    } else {
+      await this.prisma.user.update({
+        data: { saldo: userBalance - createTransactionDto.valor },
+        where: { id: user.id },
+      });
+
+      const response = await this.prisma.transaction.create({
+        data: {
+          ...createTransactionDto,
+          userId: user.id,
+        },
+      });
+
+      return response;
+    }
   }
 }

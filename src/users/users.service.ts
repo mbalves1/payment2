@@ -4,14 +4,24 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UserEntity } from './entities/user.entity';
 import { User, Prisma } from '@prisma/client';
+import { UserResponse } from './response/UserResponse';
 
 @Injectable()
 export class UsersService {
   constructor(private prisma: PrismaService) {}
 
   async create(createUserDto: CreateUserDto): Promise<UserEntity> {
+    let nextId = (await this.prisma.user.count()) + 1;
+
+    while (nextId === 6) {
+      nextId++;
+    }
+
     return this.prisma.user.create({
-      data: createUserDto as Prisma.UserCreateInput,
+      data: {
+        ...createUserDto,
+        id: nextId,
+      },
     });
   }
 
@@ -19,12 +29,27 @@ export class UsersService {
     return this.prisma.user.findMany();
   }
 
-  async findOne(id: Prisma.UserWhereUniqueInput): Promise<User | null> {
-    return this.prisma.user.findUnique({
+  async findOne(id: Prisma.UserWhereUniqueInput): Promise<UserResponse | null> {
+    const user = await this.prisma.user.findUnique({
       where: id,
       include: {
         transaction: true,
       },
     });
+
+    if (!user) {
+      return null;
+    }
+
+    const response: UserResponse = {
+      saldo: {
+        total: user.saldo,
+        data_extrato: user.data_extrato,
+        limite: user.limite,
+      },
+      ultimas_transacoes: user.transaction,
+    };
+
+    return response;
   }
 }
