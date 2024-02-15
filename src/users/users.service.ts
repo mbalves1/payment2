@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -38,13 +38,13 @@ export class UsersService {
     });
 
     if (!user) {
-      return null;
+      throw new NotFoundException('O usuário não foi encontrado');
     }
 
     const response: UserResponse = {
       saldo: {
         total: user.saldo,
-        data_extrato: user.data_extrato,
+        data_extrato: new Date(),
         limite: user.limite,
       },
       ultimas_transacoes: user.transaction,
